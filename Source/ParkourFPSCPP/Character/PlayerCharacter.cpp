@@ -21,15 +21,21 @@ APlayerCharacter::APlayerCharacter()
 	CameraBoom->TargetArmLength = 600.f;
 	CameraBoom->bUsePawnControlRotation = true;
 
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-	FollowCamera->bUsePawnControlRotation = false;
+	ThirdPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("ThirdPersonCamera"));
+	ThirdPersonCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	ThirdPersonCamera->bUsePawnControlRotation = false;
 
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
 	OverheadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverheadWidget"));
 	OverheadWidget->SetupAttachment(RootComponent);
+
+	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+	FirstPersonCamera->SetupAttachment(GetMesh(), TEXT("head"));
+	FirstPersonCamera->bUsePawnControlRotation = true;
+
+	ThirdPersonCamera->Activate();
 }
 
 // Called when the game starts or when spawned
@@ -45,33 +51,6 @@ void APlayerCharacter::BeginPlay()
 	}
 }
 
-void APlayerCharacter::MoveForward(float Value)
-{
-	if (Controller != nullptr && Value != 0.f) {
-		const FRotator YawRotation(0.f, Controller->GetControlRotation().Yaw, 0.f);
-		const FVector Direction(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X));
-		AddMovementInput(Direction, Value);
-	}
-}
-
-void APlayerCharacter::Turn(float Value)
-{
-	AddControllerYawInput(Value);
-}
-
-void APlayerCharacter::LookUp(float Value)
-{
-	AddControllerPitchInput(Value);
-}
-
-void APlayerCharacter::MoveRight(float Value)
-{
-	if (Controller != nullptr && Value != 0.f) {
-		const FRotator YawRotation(0.f, Controller->GetControlRotation().Yaw, 0.f);
-		const FVector Direction(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y));
-		AddMovementInput(Direction, Value);
-	}
-}
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
 {
@@ -99,6 +78,21 @@ void APlayerCharacter::Look(const FInputActionValue& Value)
 	}
 }
 
+void APlayerCharacter::SwitchCamera(const FInputActionValue& Value)
+{
+	if (ThirdPersonCamera && ThirdPersonCamera->IsActive()) {
+		ThirdPersonCamera->Deactivate();
+		FirstPersonCamera->Activate();
+		bUseControllerRotationYaw = true;
+	}
+
+	else if (FirstPersonCamera && FirstPersonCamera->IsActive()) {
+		FirstPersonCamera->Deactivate();
+		ThirdPersonCamera->Activate();
+		bUseControllerRotationYaw = false;
+	}
+}
+
 // Called every frame
 void APlayerCharacter::Tick(float DeltaTime)
 {
@@ -113,14 +107,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
-		
+		EnhancedInputComponent->BindAction(SwitchCameraAction, ETriggerEvent::Completed, this, &APlayerCharacter::SwitchCamera);
 	}
-	
-	/*Super::SetupPlayerInputComponent(PlayerInputComponent);
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &APlayerCharacter::Jump);
-	PlayerInputComponent->BindAxis("MoveForward", this, &APlayerCharacter::MoveForward);
-	PlayerInputComponent->BindAxis("MoveRight", this, &APlayerCharacter::MoveRight);
-	PlayerInputComponent->BindAxis("Turn", this, &APlayerCharacter::Turn);
-	PlayerInputComponent->BindAxis("LookUp", this, &APlayerCharacter::LookUp);*/
 }
 

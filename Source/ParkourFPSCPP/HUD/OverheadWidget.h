@@ -9,6 +9,7 @@
 /**
  * 
  */
+
 UCLASS()
 class PARKOURFPSCPP_API UOverheadWidget : public UUserWidget
 {
@@ -21,6 +22,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void ShowPlayerNetRole(APawn* InPawn);
+
+	UFUNCTION(BlueprintCallable)
+	void ShowPlayerName(APawn* InPawn);
 
 protected:
 	virtual void NativeDestruct() override;

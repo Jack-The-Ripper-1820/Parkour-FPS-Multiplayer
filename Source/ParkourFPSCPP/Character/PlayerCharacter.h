@@ -21,10 +21,6 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-	void MoveForward(float Value);
-	void Turn(float Value);
-	void LookUp(float Value);
-	void MoveRight(float Value);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputMappingContext* PlayerInputMappingContext;
@@ -38,18 +34,25 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* JumpAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* SwitchCameraAction;
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void SwitchCamera(const FInputActionValue& Value);
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	class USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
-	class UCameraComponent* FollowCamera;
+	class UCameraComponent* ThirdPersonCamera;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UWidgetComponent* OverheadWidget;
+
+	UPROPERTY(VisibleAnywhere, Category = Camera)
+	class UCameraComponent* FirstPersonCamera;
 public:	
 	
 
