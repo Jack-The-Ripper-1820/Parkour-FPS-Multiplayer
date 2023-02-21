@@ -9,6 +9,8 @@
 #include "Components/InputComponent.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "ParkourFPSCPP/Weapon/Weapon.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -51,6 +53,11 @@ void APlayerCharacter::BeginPlay()
 	}
 }
 
+// Called every frame
+void APlayerCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+}
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
 {
@@ -93,10 +100,31 @@ void APlayerCharacter::SwitchCamera(const FInputActionValue& Value)
 	}
 }
 
-// Called every frame
-void APlayerCharacter::Tick(float DeltaTime)
+void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
-	Super::Tick(DeltaTime);
+	if (OverlappingWeapon) {
+		OverlappingWeapon->ShowPickupWidget(true);
+	}
+
+	if (LastWeapon) {
+		LastWeapon->ShowPickupWidget(false);
+	}
+}
+
+void APlayerCharacter::SetOverlappingWeapon(AWeapon* Weapon)
+{
+	if (OverlappingWeapon) {
+		OverlappingWeapon->ShowPickupWidget(false);
+	}
+
+	OverlappingWeapon = Weapon;
+
+	if (IsLocallyControlled()) {
+
+		if (OverlappingWeapon) {
+			OverlappingWeapon->ShowPickupWidget(true);
+		}
+	}
 }
 
 // Called to bind functionality to input
@@ -109,5 +137,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		EnhancedInputComponent->BindAction(SwitchCameraAction, ETriggerEvent::Completed, this, &APlayerCharacter::SwitchCamera);
 	}
+}
+
+void APlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(APlayerCharacter, OverlappingWeapon, COND_OwnerOnly);
 }
 
