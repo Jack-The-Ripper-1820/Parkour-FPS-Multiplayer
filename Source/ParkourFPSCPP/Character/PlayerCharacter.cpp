@@ -11,6 +11,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "ParkourFPSCPP/Weapon/Weapon.h"
+#include "ParkourFPSCPP/ParkourFPSComponent/CombatComponent.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -38,6 +39,11 @@ APlayerCharacter::APlayerCharacter()
 	FirstPersonCamera->bUsePawnControlRotation = true;
 
 	ThirdPersonCamera->Activate();
+
+	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
+	Combat->SetIsReplicated(true);
+
+	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
 }
 
 // Called when the game starts or when spawned
@@ -100,6 +106,39 @@ void APlayerCharacter::SwitchCamera(const FInputActionValue& Value)
 	}
 }
 
+void APlayerCharacter::Equip(const FInputActionValue& Value) {
+	if (Combat) {
+		if (HasAuthority()) {
+			Combat->EquipWeapon(OverlappingWeapon);
+		}
+		
+		else {
+			ServerEquip();
+		}
+	}
+}
+
+void APlayerCharacter::Jump(const FInputActionValue& Value)
+{
+	Super::Jump();
+}
+
+void APlayerCharacter::StopJumping(const FInputActionValue& Value)
+{
+	Super::StopJumping();
+}
+
+void APlayerCharacter::Crouch(const FInputActionValue& Value)
+{
+	if (bIsCrouched) {
+		Super::UnCrouch();
+	}
+
+	else {
+		Super::Crouch();
+	}
+}
+
 void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
 	if (OverlappingWeapon) {
@@ -108,6 +147,13 @@ void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 
 	if (LastWeapon) {
 		LastWeapon->ShowPickupWidget(false);
+	}
+}
+
+void APlayerCharacter::ServerEquip_Implementation()
+{
+	if (Combat) {
+		Combat->EquipWeapon(OverlappingWeapon);
 	}
 }
 
@@ -127,15 +173,22 @@ void APlayerCharacter::SetOverlappingWeapon(AWeapon* Weapon)
 	}
 }
 
+bool APlayerCharacter::IsWeaponEquipped()
+{
+	return (Combat && Combat->EquippedWeapon);
+}
+
 // Called to bind functionality to input
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent)) {
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Move);
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &ACharacter::Jump);
-		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopJumping);
 		EnhancedInputComponent->BindAction(SwitchCameraAction, ETriggerEvent::Completed, this, &APlayerCharacter::SwitchCamera);
+		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Completed, this, &APlayerCharacter::Equip);
+		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &APlayerCharacter::Crouch);
 	}
 }
 
@@ -144,5 +197,14 @@ void APlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME_CONDITION(APlayerCharacter, OverlappingWeapon, COND_OwnerOnly);
+}
+
+void APlayerCharacter::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	if (Combat) {
+		Combat->Character = this;
+	}
 }
 
