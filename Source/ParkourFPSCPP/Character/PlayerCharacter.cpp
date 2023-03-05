@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ParkourFPSCPP/Weapon/Weapon.h"
 #include "ParkourFPSCPP/ParkourFPSComponent/CombatComponent.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -44,6 +45,11 @@ APlayerCharacter::APlayerCharacter()
 	Combat->SetIsReplicated(true);
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
+	bFirstPerson = false;
+
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+
 }
 
 // Called when the game starts or when spawned
@@ -97,12 +103,14 @@ void APlayerCharacter::SwitchCamera(const FInputActionValue& Value)
 		ThirdPersonCamera->Deactivate();
 		FirstPersonCamera->Activate();
 		bUseControllerRotationYaw = true;
+		bFirstPerson = true;
 	}
 
 	else if (FirstPersonCamera && FirstPersonCamera->IsActive()) {
 		FirstPersonCamera->Deactivate();
 		ThirdPersonCamera->Activate();
-		bUseControllerRotationYaw = false;
+		//bUseControllerRotationYaw = false;
+		bFirstPerson = false;
 	}
 }
 
@@ -126,6 +134,20 @@ void APlayerCharacter::Jump(const FInputActionValue& Value)
 void APlayerCharacter::StopJumping(const FInputActionValue& Value)
 {
 	Super::StopJumping();
+}
+
+void APlayerCharacter::Aim(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->SetAiming(true);
+	}
+}
+
+void APlayerCharacter::StopAiming(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->SetAiming(false);
+	}
 }
 
 void APlayerCharacter::Crouch(const FInputActionValue& Value)
@@ -178,6 +200,16 @@ bool APlayerCharacter::IsWeaponEquipped()
 	return (Combat && Combat->EquippedWeapon);
 }
 
+bool APlayerCharacter::IsAiming()
+{
+	return (Combat && Combat->bAiming);
+}
+
+bool APlayerCharacter::IsFirstPerson()
+{
+	return bFirstPerson;
+}
+
 // Called to bind functionality to input
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -189,6 +221,8 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SwitchCameraAction, ETriggerEvent::Completed, this, &APlayerCharacter::SwitchCamera);
 		EnhancedInputComponent->BindAction(EquipAction, ETriggerEvent::Completed, this, &APlayerCharacter::Equip);
 		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &APlayerCharacter::Crouch);
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Aim);
+		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopAiming);
 	}
 }
 

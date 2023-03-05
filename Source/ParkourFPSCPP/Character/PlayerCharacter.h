@@ -44,6 +44,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* CrouchAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* AimAction;
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void SwitchCamera(const FInputActionValue& Value);
@@ -51,8 +54,12 @@ protected:
 	void Jump(const FInputActionValue& Value);
 	void Crouch(const FInputActionValue& Value);
 	void StopJumping(const FInputActionValue& Value);
+	void Aim(const FInputActionValue& Value);
+	void StopAiming(const FInputActionValue& Value);
 
 private:
+	bool bFirstPerson;
+
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	class USpringArmComponent* CameraBoom;
 
@@ -79,4 +86,6 @@ private:
 public:	
 	void SetOverlappingWeapon(AWeapon* Weapon);
 	bool IsWeaponEquipped();
+	bool IsAiming();
+	bool IsFirstPerson();
 };
