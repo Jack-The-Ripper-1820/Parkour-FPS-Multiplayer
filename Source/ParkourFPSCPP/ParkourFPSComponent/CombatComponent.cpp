@@ -57,6 +57,7 @@ void UCombatComponent::ServerSetAiming_Implementation(bool bIsAiming)
 
 	if (Character) {
 		Character->GetCharacterMovement()->MaxWalkSpeed = bIsAiming ? AimWalkSpeed : BaseWalkSpeed;
+		Character->GetCharacterMovement()->MaxWalkSpeedCrouched = bIsAiming ? CrouchAimWalkSpeed : CrouchBaseWalkSpeed;
 	}
 }
 

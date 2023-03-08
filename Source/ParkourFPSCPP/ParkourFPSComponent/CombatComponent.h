@@ -48,6 +48,12 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float AimWalkSpeed;
+
+	UPROPERTY(EditAnywhere)
+	float CrouchBaseWalkSpeed;
+
+	UPROPERTY(EditAnywhere)
+	float CrouchAimWalkSpeed;
 public:	
 		
 };
