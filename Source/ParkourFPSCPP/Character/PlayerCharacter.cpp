@@ -13,6 +13,8 @@
 #include "ParkourFPSCPP/Weapon/Weapon.h"
 #include "ParkourFPSCPP/ParkourFPSComponent/CombatComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "PlayerAnimInstance.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -29,7 +31,6 @@ APlayerCharacter::APlayerCharacter()
 	ThirdPersonCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	ThirdPersonCamera->bUsePawnControlRotation = false;
 
-	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 
 	OverheadWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("OverheadWidget"));
@@ -40,16 +41,24 @@ APlayerCharacter::APlayerCharacter()
 	FirstPersonCamera->bUsePawnControlRotation = true;
 
 	ThirdPersonCamera->Activate();
+	ThirdPersonCamera->Activate();
 
 	Combat = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComponent"));
 	Combat->SetIsReplicated(true);
 
 	GetCharacterMovement()->NavAgentProps.bCanCrouch = true;
-	bFirstPerson = false;
 
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
+	bUseControllerRotationYaw = true;
+	bFirstPerson = false;
+	bFreeLook = false;
+
+	TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+
+	NetUpdateFrequency = 66.f;
+	MinNetUpdateFrequency = 33.f;
 }
 
 // Called when the game starts or when spawned
@@ -69,6 +78,8 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	AimOffset(DeltaTime);
 }
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
@@ -102,14 +113,14 @@ void APlayerCharacter::SwitchCamera(const FInputActionValue& Value)
 	if (ThirdPersonCamera && ThirdPersonCamera->IsActive()) {
 		ThirdPersonCamera->Deactivate();
 		FirstPersonCamera->Activate();
-		bUseControllerRotationYaw = true;
+		//bUseControllerRotationYaw = true;
 		bFirstPerson = true;
 	}
 
 	else if (FirstPersonCamera && FirstPersonCamera->IsActive()) {
 		FirstPersonCamera->Deactivate();
 		ThirdPersonCamera->Activate();
-		//bUseControllerRotationYaw = false;
+		//if(IsWeaponEquipped()) bUseControllerRotationYaw = false;
 		bFirstPerson = false;
 	}
 }
@@ -126,14 +137,24 @@ void APlayerCharacter::Equip(const FInputActionValue& Value) {
 	}
 }
 
-void APlayerCharacter::Jump(const FInputActionValue& Value)
+void APlayerCharacter::Jump()
 {
-	Super::Jump();
+	if (bIsCrouched) {
+		UnCrouch();
+	}
+
+	else Super::Jump();
 }
 
-void APlayerCharacter::StopJumping(const FInputActionValue& Value)
+void APlayerCharacter::StopJumping()
 {
 	Super::StopJumping();
+}
+
+void APlayerCharacter::Crouch()
+{
+	if (bIsCrouched) UnCrouch();
+	else Super::Crouch();
 }
 
 void APlayerCharacter::Aim(const FInputActionValue& Value)
@@ -150,16 +171,73 @@ void APlayerCharacter::StopAiming(const FInputActionValue& Value)
 	}
 }
 
-void APlayerCharacter::Crouch(const FInputActionValue& Value)
+void APlayerCharacter::AimOffset(float DeltaTime)
 {
-	if (bIsCrouched) {
-		Super::UnCrouch();
+	if (Combat && Combat->EquippedWeapon == nullptr) return;
+
+	FVector Velocity = GetVelocity();
+	Velocity.Z = 0.f;
+	float Speed = Velocity.Size();
+	bool bIsInAir = GetCharacterMovement()->IsFalling();
+
+	if (Speed == 0.f && !bIsInAir) {
+		FRotator CurrentAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		FRotator DeltaAimRotation = UKismetMathLibrary::NormalizedDeltaRotator(CurrentAimRotation, StartingAimRotation);
+		AO_Yaw = DeltaAimRotation.Yaw;
+		if (TurningInPlace == ETurningInPlace::ETIP_NotTurning) {
+			InterpAO_Yaw = AO_Yaw;
+		}
+
+		bUseControllerRotationYaw = true;
+		TurnInPlace(DeltaTime);
+	}
+
+	if (Speed > 0.f || bIsInAir) {
+		StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		AO_Yaw = 0.f;
+		TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+		//bUseControllerRotationYaw = true;
+	}
+
+	AO_Pitch = GetBaseAimRotation().Pitch;
+
+	if (AO_Pitch > 90.f && !IsLocallyControlled()) {
+		FVector2D InRange(270.f, 360.f);
+		FVector2D OutRange(-90.f, 0.f);
+		AO_Pitch = FMath::GetMappedRangeValueClamped(InRange, OutRange, AO_Pitch);
+	}
+}
+
+void APlayerCharacter::FreeLook(const FInputActionValue& Value)
+{
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	if (bFirstPerson) return;
+
+	bFreeLook = !bFreeLook;
+
+	if (bFreeLook) {
+		bUseControllerRotationYaw = false;
 	}
 
 	else {
-		Super::Crouch();
+		bUseControllerRotationYaw = true;
 	}
 }
+
+void APlayerCharacter::FirePressed(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->FireButtonPressed(true);
+	}
+}
+
+void APlayerCharacter::FireReleased(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->FireButtonPressed(false);
+	}
+}
+
 
 void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
@@ -176,6 +254,29 @@ void APlayerCharacter::ServerEquip_Implementation()
 {
 	if (Combat) {
 		Combat->EquipWeapon(OverlappingWeapon);
+	}
+}
+
+void APlayerCharacter::TurnInPlace(float DeltaTime)
+{
+	//if (bFirstPerson) return;
+
+	if (AO_Yaw > 90.f) {
+		TurningInPlace = ETurningInPlace::ETIP_Right;
+	}
+
+	else if (AO_Yaw < -90.f) {
+		TurningInPlace = ETurningInPlace::ETIP_Left;
+	}
+
+	if (TurningInPlace != ETurningInPlace::ETIP_NotTurning) {
+		InterpAO_Yaw = FMath::FInterpTo(InterpAO_Yaw, 0.f, DeltaTime, 4.f);
+		AO_Yaw = InterpAO_Yaw;
+
+		if (FMath::Abs(AO_Yaw) < 15.f) {
+			TurningInPlace = ETurningInPlace::ETIP_NotTurning;
+			StartingAimRotation = FRotator(0.f, GetBaseAimRotation().Yaw, 0.f);
+		}
 	}
 }
 
@@ -210,6 +311,18 @@ bool APlayerCharacter::IsFirstPerson()
 	return bFirstPerson;
 }
 
+bool APlayerCharacter::IsFreeLook()
+{
+	return bFreeLook;
+}
+
+AWeapon* APlayerCharacter::GetEquippedWeapon()
+{
+	if (Combat == nullptr) return nullptr;
+
+	return Combat->EquippedWeapon;
+}
+
 // Called to bind functionality to input
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -223,6 +336,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(CrouchAction, ETriggerEvent::Completed, this, &APlayerCharacter::Crouch);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Aim);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopAiming);
+		EnhancedInputComponent->BindAction(FreeLookAction, ETriggerEvent::Completed, this, &APlayerCharacter::FreeLook);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &APlayerCharacter::FirePressed);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &APlayerCharacter::FireReleased);
+
 	}
 }
 
@@ -239,6 +356,22 @@ void APlayerCharacter::PostInitializeComponents()
 
 	if (Combat) {
 		Combat->Character = this;
+	}
+}
+
+void APlayerCharacter::PlayFireMontage(bool bAiming)
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	if (AnimInstance && FireWeaponMontage) {
+		AnimInstance->Montage_Play(FireWeaponMontage);
+		FName SectionName;
+		
+		SectionName = bAiming ? FName("RifleAim") : FName("RifleHip");
+
+		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
 

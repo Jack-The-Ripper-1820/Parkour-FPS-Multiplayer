@@ -5,6 +5,7 @@
 #include "PlayerCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "ParkourFPSCPP/Weapon/Weapon.h"
 
 void UPlayerAnimInstance::NativeInitializeAnimation()
 {
@@ -38,6 +39,10 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float Deltatime)
 
 	bFirstPerson = PlayerCharacter->IsFirstPerson();
 
+	EquippedWeapon = PlayerCharacter->GetEquippedWeapon();
+
+	TurningInPlace = PlayerCharacter->GetTurningInPlace();
+
 	//Offset yaw for strafing
 	FRotator AimRotation = PlayerCharacter->GetBaseAimRotation();
 	FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(PlayerCharacter->GetVelocity());
@@ -52,5 +57,16 @@ void UPlayerAnimInstance::NativeUpdateAnimation(float Deltatime)
 	const float Interp = FMath::FInterpTo(Lean, Target, Deltatime, 6.f);
 	Lean = FMath::Clamp(Interp, -90.f, 90.f);
 
+	AO_Yaw = PlayerCharacter->GetAO_Yaw();
+	AO_Pitch = PlayerCharacter->GetAO_Pitch();
 
+	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && PlayerCharacter->GetMesh()) {
+		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(FName("LeftHandPlacement"), ERelativeTransformSpace::RTS_World);
+		FVector OutPosition;
+		FRotator OutRotation;
+		PlayerCharacter->GetMesh()->TransformToBoneSpace(FName("hand_r"), LeftHandTransform.GetLocation(), FRotator::ZeroRotator, OutPosition, OutRotation);
+
+		LeftHandTransform.SetLocation(OutPosition);
+		LeftHandTransform.SetRotation(FQuat(OutRotation));
+	}
 }

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
+#include "ParkourFPSCPP/Types/TurningInPlace.h"
 #include "PlayerCharacter.generated.h"
 
 class UInputMappingContext;
@@ -20,6 +21,8 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+	void PlayFireMontage(bool bAiming);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -47,18 +50,32 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* AimAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* FreeLookAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* FireAction;
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void SwitchCamera(const FInputActionValue& Value);
 	void Equip(const FInputActionValue& Value);
-	void Jump(const FInputActionValue& Value);
-	void Crouch(const FInputActionValue& Value);
-	void StopJumping(const FInputActionValue& Value);
+	virtual void Jump() override;
+	virtual void StopJumping() override;
+	void Crouch();
 	void Aim(const FInputActionValue& Value);
 	void StopAiming(const FInputActionValue& Value);
+	void AimOffset(float DeltaTime);
+	void FreeLook(const FInputActionValue& Value);
+	void FirePressed(const FInputActionValue& Value);
+	void FireReleased(const FInputActionValue& Value);
 
 private:
+	//UPROPERTY(VisibleAnywhere, Category = Camera)
 	bool bFirstPerson;
+	
+	UPROPERTY(Replicated)
+	bool bFreeLook;
 
 	UPROPERTY(VisibleAnywhere, Category = Camera)
 	class USpringArmComponent* CameraBoom;
@@ -83,9 +100,35 @@ private:
 	
 	UFUNCTION(Server, Reliable)
 	void ServerEquip();
+
+	float AO_Yaw;
+	float InterpAO_Yaw;
+	float AO_Pitch;
+	FRotator StartingAimRotation;
+
+	ETurningInPlace TurningInPlace;
+	void TurnInPlace(float DeltaTime);
+
+	UPROPERTY(EditAnywhere, Category = Combat)
+	class UAnimMontage* FireWeaponMontage;
 public:	
 	void SetOverlappingWeapon(AWeapon* Weapon);
+
+	UFUNCTION(BlueprintCallable)
 	bool IsWeaponEquipped();
+	
+	UFUNCTION(BlueprintCallable)
 	bool IsAiming();
+
+	UFUNCTION(BlueprintCallable)
 	bool IsFirstPerson();
+
+	UFUNCTION(BlueprintCallable)
+	bool IsFreeLook();
+
+	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
+	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
+	AWeapon* GetEquippedWeapon();
+
+	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
 };
