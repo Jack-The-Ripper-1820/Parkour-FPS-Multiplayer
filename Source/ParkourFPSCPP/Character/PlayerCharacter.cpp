@@ -14,6 +14,7 @@
 #include "ParkourFPSCPP/ParkourFPSComponent/CombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "PlayerAnimInstance.h"
 
 // Sets default values
 APlayerCharacter::APlayerCharacter()
@@ -223,6 +224,21 @@ void APlayerCharacter::FreeLook(const FInputActionValue& Value)
 	}
 }
 
+void APlayerCharacter::FirePressed(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->FireButtonPressed(true);
+	}
+}
+
+void APlayerCharacter::FireReleased(const FInputActionValue& Value)
+{
+	if (Combat) {
+		Combat->FireButtonPressed(false);
+	}
+}
+
+
 void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
 	if (OverlappingWeapon) {
@@ -321,6 +337,9 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Aim);
 		EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopAiming);
 		EnhancedInputComponent->BindAction(FreeLookAction, ETriggerEvent::Completed, this, &APlayerCharacter::FreeLook);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Triggered, this, &APlayerCharacter::FirePressed);
+		EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Completed, this, &APlayerCharacter::FireReleased);
+
 	}
 }
 
@@ -337,6 +356,22 @@ void APlayerCharacter::PostInitializeComponents()
 
 	if (Combat) {
 		Combat->Character = this;
+	}
+}
+
+void APlayerCharacter::PlayFireMontage(bool bAiming)
+{
+	if (Combat == nullptr || Combat->EquippedWeapon == nullptr) return;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+
+	if (AnimInstance && FireWeaponMontage) {
+		AnimInstance->Montage_Play(FireWeaponMontage);
+		FName SectionName;
+		
+		SectionName = bAiming ? FName("RifleAim") : FName("RifleHip");
+
+		AnimInstance->Montage_JumpToSection(SectionName);
 	}
 }
 
