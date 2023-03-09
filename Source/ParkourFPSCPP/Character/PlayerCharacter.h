@@ -69,6 +69,7 @@ protected:
 	void FreeLook(const FInputActionValue& Value);
 	void FirePressed(const FInputActionValue& Value);
 	void FireReleased(const FInputActionValue& Value);
+	void ADS(const FInputActionValue& Value);
 
 private:
 	//UPROPERTY(VisibleAnywhere, Category = Camera)

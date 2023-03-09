@@ -45,8 +45,13 @@ protected:
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
 
 	void TraceUnderCrosshairs(FHitResult& TraceHitResult);
+
+	void SetHUDCrosshairs(float DeltaTime);
+
 private:
 	APlayerCharacter* Character;
+	class AShooterPlayerController* Controller;
+	class APlayerHUD* HUD;
 
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeapon* EquippedWeapon;
@@ -67,6 +72,15 @@ private:
 	float CrouchAimWalkSpeed;
 
 	bool bFireButtonPressed;
+
+	/*
+	* HUD and crosshairs
+	*/
+
+	float CrosshairVelocityFactor;
+	float CrosshairInAirFactor;
+
+
 public:	
 		
 };

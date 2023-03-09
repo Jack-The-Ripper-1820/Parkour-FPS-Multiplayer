@@ -238,6 +238,10 @@ void APlayerCharacter::FireReleased(const FInputActionValue& Value)
 	}
 }
 
+void APlayerCharacter::ADS(const FInputActionValue& Value)
+{
+}
+
 
 void APlayerCharacter::OnRep_OverlappingWeapon(AWeapon* LastWeapon)
 {
